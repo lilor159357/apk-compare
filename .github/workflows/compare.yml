@@ -23,6 +23,14 @@ jobs:
           sudo curl -L https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -o /usr/local/bin/apktool
           sudo chmod +x /usr/local/bin/apktool /usr/local/bin/apktool.jar
 
+      - name: Download APKs
+        run: |
+          echo "Downloading Original APK..."
+          wget -O original.apk "https://github.com/lilor159357/apk-compare/releases/download/v.1/original.apk"
+          
+          echo "Downloading Modified APK..."
+          wget -O modified.apk "https://github.com/lilor159357/apk-compare/releases/download/v.1/modified.apk"
+
       - name: Decompile Original APK
         run: apktool d -f original.apk -o original_apk_dir
 
