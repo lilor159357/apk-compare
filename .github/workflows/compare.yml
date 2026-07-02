@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       original_apk_url:
-        description: 'הכנס קישור ישיר להורדת ה-APK המקורי'
+        description: 'הכנס קישור של גוגל דרייב ל-APK המקורי'
         required: true
         type: string
       modified_apk_url:
-        description: 'הכנס קישור ישיר להורדת ה-APK ששונה'
+        description: 'הכנס קישור של גוגל דרייב ל-APK ששונה'
         required: true
         type: string
 
@@ -32,13 +32,14 @@ jobs:
           sudo curl -L https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -o /usr/local/bin/apktool
           sudo chmod +x /usr/local/bin/apktool /usr/local/bin/apktool.jar
 
-      - name: Download APK files
+      - name: Download APK files with gdown
+        # שימוש ב-gdown כדי לעקוף את חסימות ההורדה של גוגל דרייב
         run: |
           echo "Downloading Original APK..."
-          wget -O original.apk "${{ inputs.original_apk_url }}"
+          pipx run gdown "${{ inputs.original_apk_url }}" -O original.apk
           
           echo "Downloading Modified APK..."
-          wget -O modified.apk "${{ inputs.modified_apk_url }}"
+          pipx run gdown "${{ inputs.modified_apk_url }}" -O modified.apk
 
       - name: Decompile Original APK
         run: apktool d -f original.apk -o original_apk_dir
