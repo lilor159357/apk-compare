@@ -32,11 +32,11 @@ jobs:
           wget -O modified.apk "https://github.com/lilor159357/apk-compare/releases/download/v.1/modified.apk"
 
       - name: Decompile Original APK
-        run: apktool d -f original.apk -o original_apk_dir
+        run: apktool d -b -f original.apk -o original_apk_dir
 
       - name: Decompile Modified APK
-        run: apktool d -f modified.apk -o modified_apk_dir
-
+        run: apktool d -b -f modified.apk -o modified_apk_dir
+        
       - name: Prepare Unified Directories & Compare
         run: |
           echo "Step 1: Creating unified directories..."
