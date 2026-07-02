@@ -1,0 +1,49 @@
+name: Automated APK Compare Tool
+
+on:
+  workflow_dispatch: # מאפשר לך להפעיל את הבדיקה ידנית בלחיצת כפתור
+
+jobs:
+  compare-apks:
+    runs-on: ubuntu-latest
+
+    steps:
+      # שלב 1: מוריד את הקוד וה-APKs מהריפו שלך אל השרת של גיטהאב
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # שלב 2: התקנת Java (חובה בשביל להריץ את apktool)
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # שלב 3: התקנת apktool בצורה גלובלית (בדיוק כמו שהסקריפט הלוקאלי דורש)
+      - name: Install Apktool
+        run: |
+          sudo curl -L https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.9.3.jar -o /usr/local/bin/apktool.jar
+          sudo curl -L https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -o /usr/local/bin/apktool
+          sudo chmod +x /usr/local/bin/apktool /usr/local/bin/apktool.jar
+
+      # שלב 4: פירוק האפליקציה המקורית (המקבילה למה שיש בסקריפט)
+      - name: Decompile Original APK
+        run: apktool d -f original.apk -o original_apk_dir
+
+      # שלב 5: פירוק האפליקציה ששונתה
+      - name: Decompile Modified APK
+        run: apktool d -f modified.apk -o modified_apk_dir
+
+      # שלב 6: השוואת תיקיות ה-Smali בלבד
+      - name: Compare Smali Directories
+        run: |
+          echo "Comparing smali folders..."
+          # שימוש ב-urN מייצר קובץ diff סטנדרטי (patch) שהרבה יותר נוח לקריאה ב-VS Code מאשר צבעי טרמינל
+          diff -urN original_apk_dir/smali modified_apk_dir/smali > smali_changes.patch || true
+
+      # שלב 7: העלאת התוצאה כקובץ שתוכל להוריד מגיטהאב
+      - name: Upload Comparison Logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: smali-changes-log
+          path: smali_changes.patch
