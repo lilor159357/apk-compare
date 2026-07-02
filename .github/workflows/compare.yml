@@ -1,16 +1,7 @@
 name: Automated APK Compare Tool
 
 on:
-  workflow_dispatch:
-    inputs:
-      original_apk_url:
-        description: 'קישור ישיר ל-APK המקורי'
-        required: true
-        type: string
-      modified_apk_url:
-        description: 'קישור ישיר ל-APK ששונה'
-        required: true
-        type: string
+  workflow_dispatch: # מאפשר הפעלה ידנית דרך הממשק של גיטהאב
 
 jobs:
   compare-apks:
@@ -32,27 +23,58 @@ jobs:
           sudo curl -L https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -o /usr/local/bin/apktool
           sudo chmod +x /usr/local/bin/apktool /usr/local/bin/apktool.jar
 
-      - name: Download APK files
-        run: |
-          echo "Downloading Original APK..."
-          wget -O original.apk "${{ inputs.original_apk_url }}"
-          
-          echo "Downloading Modified APK..."
-          wget -O modified.apk "${{ inputs.modified_apk_url }}"
-
       - name: Decompile Original APK
         run: apktool d -f original.apk -o original_apk_dir
 
       - name: Decompile Modified APK
         run: apktool d -f modified.apk -o modified_apk_dir
 
-      - name: Compare Smali Directories
+      - name: Prepare Unified Directories & Compare
         run: |
-          echo "Comparing smali folders..."
-          diff -urN original_apk_dir/smali modified_apk_dir/smali > smali_changes.patch || true
+          echo "Step 1: Creating unified directories..."
+          mkdir -p unified_original/smali unified_modified/smali
 
-      - name: Upload Comparison Logs
+          echo "Step 2: Copying all non-smali files (resources, manifest, etc.)..."
+          rsync -a --exclude='smali*' original_apk_dir/ unified_original/
+          rsync -a --exclude='smali*' modified_apk_dir/ unified_modified/
+
+          echo "Step 3: Merging all smali folders into a single pool..."
+          for dir in original_apk_dir/smali*; do
+            if [ -d "$dir" ]; then rsync -a "$dir"/ unified_original/smali/; fi
+          done
+
+          for dir in modified_apk_dir/smali*; do
+            if [ -d "$dir" ]; then rsync -a "$dir"/ unified_modified/smali/; fi
+          done
+
+          echo "Step 4: Comparing unified directories..."
+          # || true ensures the workflow doesn't fail just because differences were found
+          diff -urN unified_original unified_modified > smart_changes.patch || true
+
+      - name: Split Diffs and Generate Index
+        run: |
+          echo "Generating a simple text list of modified files..."
+          grep "^diff -urN " smart_changes.patch | awk '{print $4}' | sed 's|unified_modified/||g' > changed_classes_list.txt
+
+          echo "Splitting massive patch into per-class patches..."
+          mkdir -p per_class_diffs
+          awk '
+          /^diff -urN / {
+              filepath = $4;
+              sub("unified_modified/", "", filepath);
+              filename = filepath;
+              gsub("/", ".", filename);
+              outfile = "per_class_diffs/" filename ".patch";
+          }
+          {
+              if (outfile != "") print $0 >> outfile;
+          }' smart_changes.patch
+
+      - name: Upload Smart AI-Ready Logs
         uses: actions/upload-artifact@v4
         with:
-          name: smali-changes-log
-          path: smali_changes.patch
+          name: ai-ready-smali-diffs
+          path: |
+            smart_changes.patch
+            changed_classes_list.txt
+            per_class_diffs/
